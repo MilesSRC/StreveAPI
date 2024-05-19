@@ -59,6 +59,7 @@ AuthRouter.post('/login', async (req, res) => {
         sameSite: 'strict',
         maxAge: req.query.remember ? 1209600000 : 43200000,
     })
+    
     res.status(200).json({ token });
 });
 
