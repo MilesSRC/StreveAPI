@@ -27,20 +27,20 @@ AuthRouter.post('/login', async (req, res) => {
     const user = await User.findOne({ email });
 
     if(!user)
-        return res.status(404).json(APIError(
+        return res.status(403).json(APIError(
             "invalid_credentials",
             "Invalid email or password"
         ));
 
     const OK = await Bun.password.verify(password, user.password).catch(err => {
-        res.status(404).json(APIError(
+        res.status(403).json(APIError(
             "invalid_credentials",
             "Invalid email or password"
         ));
     });
 
     if(!OK)
-        return res.status(404).json(APIError(
+        return res.status(403).json(APIError(
             "invalid_credentials",
             "Invalid email or password"
         ));
