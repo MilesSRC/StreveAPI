@@ -52,6 +52,13 @@ AuthRouter.post('/login', async (req, res) => {
 
     /* Add user to cache */
     UserCache.set(user.id, user);
+
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: req.query.remember ? 1209600000 : 43200000,
+    })
     res.status(200).json({ token });
 });
 

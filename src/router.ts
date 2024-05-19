@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 
 // Routes
 import UserRouter from './routes/users';
@@ -16,9 +17,12 @@ const app = express();
 
 // Middlewares
 app.use(express.json());
+app.use(cookieParser());
 app.use(helmet());
 app.use(cors());
 app.use(morgan('dev'));
+
+// Development Hotfix
 
 // Routes
 app.use('/api/users', UserRouter);

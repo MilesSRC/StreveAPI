@@ -19,6 +19,10 @@ UserRouter.use(rateLimit({
 	max: 25,
 	standardHeaders: 'draft-7',
 
+	keyGenerator: (req, res) => {
+		return process.env.NODE_ENV === 'production' ? req.ip || 'local' : 'local';
+	},
+
 	message: APIError(
 		"hit_rate_limit",
 		"Woah! Slow down there, partner. You're hitting the rate limit."

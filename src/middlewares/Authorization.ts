@@ -6,22 +6,21 @@ import { UserCache } from "../caches";
 
 async function authRequired(req: Request, res: Response, next: NextFunction){
 	/* Verify JSONWEBTOKEN */
-	const headers = req.headers;
-	const auth = headers["authorization"];
+	const auth = req.cookies.token;
 
 	if(!auth)
 		return res.status(403).send(APIError(
 			"invalid_authorization",
-			"Authorization header contains an invalid token type for this endpoint."
+			"Authorization cookie contains an invalid token type for this endpoint."
 		))
 
 	// Verify that is in indeed a JWT
-	const token = auth.split(" ")[1];
+	const token = auth.split(".").length === 3 ? auth : undefined;
 
 	if(!token)
 		return res.status(403).send(APIError(
 			"invalid_token_missing",
-			"Authorization header contains an invalid token."
+			"Authorization cookie contains an invalid token."
 		))
 
 	// Verify JWT
@@ -38,7 +37,7 @@ async function authRequired(req: Request, res: Response, next: NextFunction){
 	} catch (err) {
 		return res.status(403).send(APIError(
 			"invalid_token_failed",
-			"Authorization header contains an invalid token."
+			"Authorization cookie contains an invalid token."
 		));
 	}
 
