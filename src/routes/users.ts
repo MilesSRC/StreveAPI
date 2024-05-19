@@ -9,6 +9,7 @@ import { rateLimit } from 'express-rate-limit';
 
 // Models
 import User from '../models/User';
+import { sign } from "jsonwebtoken";
 
 // Base
 const UserRouter = Router();
@@ -55,10 +56,28 @@ UserRouter.post('/', async (req, res) => {
 	try {
 		const savedUser = await newUser.save();
 
-		// Sanitize password
-		savedUser.password = "";
+		// Get a copy of the user data without the password
+		const user = savedUser.toObject() as any;
+		delete user.password;
 
-		res.status(200).json(savedUser);
+		/* Generate a JWT and set it as the token cookie */
+		const token = sign({
+			id: savedUser.id,
+			username: savedUser.name,
+		}, process.env.JWT_SECRET, { expiresIn: '12h' });
+
+		// Add user to cache
+		UserCache.set(savedUser.id, savedUser);
+
+		// Set the token cookie
+		res.cookie('token', token, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === 'production',
+			sameSite: 'strict',
+			maxAge: 43200000,
+		});
+
+		res.status(200).json(user);
 	} catch (err: MongooseError | Error | any) {
 		if(err.errorResponse){
 			const response = err.errorResponse;
@@ -88,8 +107,9 @@ UserRouter.get('/me', authRequired, async (req, res) => {
 			"That user couldn't be found"
 		))
 
-	// sanitize password
-	req.user.password = "";
+	// Copy user data without the password
+	const user = req.user.toObject() as any;
+	delete user.password;
 
 	// Send users data
 	res.status(200).json(req.user);
@@ -153,10 +173,18 @@ UserRouter.put('/', authRequired, async (req, res) => {
         UserCache.set(user.id, user);
 
         // Fetch the updated user from the database to ensure the response contains the latest data
-        const updatedUser = await User.findById(user._id) as IUser;
+        const updatedDBUser = await User.findById(user._id);
 
-		// Remove sensitive information
-		updatedUser.password = "";
+		// This shouldn't happen, but to satisfy TypeScript
+		if(!updatedDBUser)
+			return res.status(404).json(APIError(
+				"user_not_found",
+				"User not found."
+			));
+
+		// Copy user data without the password
+		const updatedUser = updatedDBUser.toObject() as any;
+		delete updatedUser.password;
 
         res.status(200).json(updatedUser);
     } catch (err) {
