@@ -1,4 +1,5 @@
 import { type NextFunction, type Request, type Response } from "express";
+import { type Document, type Types } from "mongoose";
 import { verify } from 'jsonwebtoken';
 import { APIError } from "../library/Messages";
 import User from '../models/User';
@@ -48,10 +49,12 @@ async function authRequired(req: Request, res: Response, next: NextFunction){
 		));
 
 	// Check if user is in cache
-	let user: IUser | undefined = UserCache.get(payload.id) as IUser | undefined;
+	let user = UserCache.get(payload.id) as Document<unknown, {}, IUser> & IUser & {
+		_id: Types.ObjectId;
+	} | null;
 
 	if(!user){
-		user = await User.findOne({ id: payload.id }) as IUser | undefined;
+		user = await User.findOne({ id: payload.id });
 
 		if(user && user.id === payload.id)
 			UserCache.set(user.id, user);
@@ -63,7 +66,7 @@ async function authRequired(req: Request, res: Response, next: NextFunction){
 			))
 	}
 
-	req.user = user as IUser;
+	req.user = user;
 	next();
 }
 

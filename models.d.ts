@@ -1,9 +1,11 @@
-import type { ObjectId } from "mongoose";
+import type { ObjectId, Document } from "mongoose";
 
 declare global {
     declare namespace Express {
         interface Request {
-            user: IUser;
+            user: Document<unknown, {}, IUser> & IUser & {
+                _id: Types.ObjectId;
+            }
         }
     }
 
