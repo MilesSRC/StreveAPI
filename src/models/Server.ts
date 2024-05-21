@@ -6,6 +6,8 @@ const ServerSchema = new Schema<ServerDocument>({
     name: { type: String, required: true },
     address: { type: String, required: true },
     port: { type: Number, required: true },
+    region: { type: String, required: true },
+    series: { type: String, required: true },
 
     provider: { type: {
         name: { type: String, required: true },

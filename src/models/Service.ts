@@ -1,4 +1,4 @@
-import { Schema, model, type ObjectId } from "mongoose";
+import { Schema, model, Types } from "mongoose";
 import Server from "./Server";
 
 /* Service Model */
@@ -6,6 +6,7 @@ const ServiceSchema = new Schema<ServiceDocument>({
     id: { type: String, required: true },
     name: { type: String, required: true },
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    series: { type: String, required: true },
 
     pricing: { type: {
         price: { type: Number, required: true },
