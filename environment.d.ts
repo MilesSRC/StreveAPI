@@ -4,6 +4,7 @@ declare global {
         MONGO: string;
         PORT: string;
         JWT_SECRET: string;
+        SERVICES_MARKUP_RATE: string; // Float as string
       }
     }
   }
