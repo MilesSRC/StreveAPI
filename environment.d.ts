@@ -2,6 +2,10 @@ declare global {
     namespace NodeJS {
       interface ProcessEnv {
         MONGO: string;
+        REDIS_PASSWORD: string;
+        STRIPE_API_KEY: string;
+        URL: string;
+
         PORT: string;
         JWT_SECRET: string;
         SERVICES_MARKUP_RATE: string; // Float as string

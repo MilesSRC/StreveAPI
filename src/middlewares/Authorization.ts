@@ -1,6 +1,6 @@
 import { type NextFunction, type Request, type Response } from "express";
 import { type Document, type Types } from "mongoose";
-import { verify } from 'jsonwebtoken';
+import { verify, type JwtPayload } from 'jsonwebtoken';
 import { APIError } from "../library/Messages";
 import User from '../models/User';
 import { UserCache } from "../caches";
@@ -25,15 +25,9 @@ async function authRequired(req: Request, res: Response, next: NextFunction){
 		))
 
 	// Verify JWT
-	let payload: {
-		id: string;
-		username: string;
-		iat: number;
-		exp: number;
-	};
+	let payload: JwtPayload | string = "";
 
 	try {
-		// @ts-ignore
 		payload = verify(token, process.env.JWT_SECRET);
 	} catch (err) {
 		return res.status(403).send(APIError(
@@ -42,18 +36,18 @@ async function authRequired(req: Request, res: Response, next: NextFunction){
 		));
 	}
 
-	if(!payload)
+	if(payload === "" || !payload)
 		return res.status(500).send(APIError(
 			"internal_error",
 			"An internal error occurred while verifying the token."
 		));
 
-	// Check if user is in cache
-	let user = UserCache.get(payload.id) as Document<unknown, {}, IUser> & IUser & {
-		_id: Types.ObjectId;
-	} | null;
+	payload = payload as JwtPayload;
 
-	if(!user){
+	// Check if user is in cache
+	let user = UserCache.get(payload.id) as UserDocument | null;
+
+	if(!user || req.query.fresh === "true"){
 		user = await User.findOne({ id: payload.id });
 
 		if(user && user.id === payload.id)
@@ -86,4 +80,22 @@ function adminRequired(req: Request, res: Response, next: NextFunction){
 	next();
 }
 
-export { authRequired, adminRequired };
+function securityKeyRequired(req: Request, res: Response, next: NextFunction){
+	const key = req.headers['security-key'];
+
+	if(!key)
+		return res.status(403).send(APIError(
+			"unauthorized",
+			"You are not authorized to perform this action."
+		))
+
+	if(key !== process.env.SECURITY_KEY)
+		return res.status(403).send(APIError(
+			"unauthorized",
+			"You are not authorized to perform this action."
+		))
+
+	next();
+}
+
+export { authRequired, adminRequired, securityKeyRequired };

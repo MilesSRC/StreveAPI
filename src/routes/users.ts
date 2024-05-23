@@ -5,33 +5,17 @@ import { APIError } from "../library/Messages";
 import { authRequired } from "../middlewares/Authorization";
 import { UserCache } from "../caches";
 import { MongooseError } from "mongoose";
-import { rateLimit } from 'express-rate-limit';
 
 // Models
 import User from '../models/User';
 import { sign } from "jsonwebtoken";
+import { BasicRL, HighRL, OnceRL, StrictRL } from "../library/Ratelimits";
 
 // Base
 const UserRouter = Router();
 
-// Endpoint Security
-UserRouter.use(rateLimit({
-	windowMs: 15 * 60 * 1000,
-	max: 25,
-	standardHeaders: 'draft-7',
-
-	keyGenerator: (req, res) => {
-		return process.env.NODE_ENV === 'production' ? req.ip || 'local' : 'local';
-	},
-
-	message: APIError(
-		"hit_rate_limit",
-		"Woah! Slow down there, partner. You're hitting the rate limit."
-	)
-}));
-
 // Create
-UserRouter.post('/', async (req, res) => {
+UserRouter.post('/', process.env.NODE_ENV === 'production' ? OnceRL : BasicRL, async (req, res) => {
 	const newUser = new User(req.body);
 	newUser.id = nanoid(11);
 
@@ -54,20 +38,20 @@ UserRouter.post('/', async (req, res) => {
 	newUser.role = 'user';
 
 	try {
-		const savedUser = await newUser.save();
+		await newUser.save();
 
 		// Get a copy of the user data without the password
-		const user = savedUser.toObject() as any;
+		const user = newUser.toObject() as any;
 		delete user.password;
 
 		/* Generate a JWT and set it as the token cookie */
 		const token = sign({
-			id: savedUser.id,
-			username: savedUser.name,
+			id: newUser.id,
+			username: newUser.name,
 		}, process.env.JWT_SECRET, { expiresIn: '12h' });
 
 		// Add user to cache
-		UserCache.set(savedUser.id, savedUser);
+		UserCache.set(newUser.id, newUser);
 
 		// Set the token cookie
 		res.cookie('token', token, {
@@ -75,6 +59,11 @@ UserRouter.post('/', async (req, res) => {
 			secure: process.env.NODE_ENV === 'production',
 			sameSite: 'strict',
 			maxAge: 43200000,
+		});
+
+		// Attempt to create a Stripe customer in the background
+		newUser.createStripeCustomer().catch(err => {
+			console.error(err);
 		});
 
 		res.status(200).json(user);
@@ -100,7 +89,7 @@ UserRouter.post('/', async (req, res) => {
 });
 
 // Read
-UserRouter.get('/me', authRequired, async (req, res) => {
+UserRouter.get('/me', BasicRL, authRequired, async (req, res) => {
 	if(!req.user)
 		return res.status(404).json(APIError(
 			"user_not_found",
@@ -116,7 +105,7 @@ UserRouter.get('/me', authRequired, async (req, res) => {
 })
 
 // Update
-UserRouter.put('/', authRequired, async (req, res) => {
+UserRouter.put('/', HighRL, authRequired, async (req, res) => {
     // Disallowed fields
     const disallowedFields = ['role', 'id', 'createdAt', 'updatedAt', '__v', '_id'];
 
@@ -140,7 +129,7 @@ UserRouter.put('/', authRequired, async (req, res) => {
 
     try {
         // Fetch user from the database to ensure it's a Mongoose document
-        const user = await User.findOne({ id: req.user?.id }) as IUser;
+        const user = await User.findOne({ id: req.user?.id }) as UserDocument;
 
         if (!user) {
             return res.status(404).json(APIError(
@@ -198,7 +187,7 @@ UserRouter.put('/', authRequired, async (req, res) => {
 });
 
 // Delete
-UserRouter.delete('/', authRequired, async (req, res) => {
+UserRouter.delete('/', StrictRL, authRequired, async (req, res) => {
 	try {
 		/* Remove user from cache */
 		UserCache.delete(req.user.id);

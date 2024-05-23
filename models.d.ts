@@ -3,9 +3,7 @@ import type { ObjectId, Document } from "mongoose";
 declare global {
     declare namespace Express {
         interface Request {
-            user: Document<unknown, {}, IUser> & IUser & {
-                _id: Types.ObjectId;
-            }
+            user: UserDocument;
         }
     }
 
@@ -16,8 +14,10 @@ declare global {
         _id: ObjectId,
 
         name: string,
+        fullName: string,
         email: string,
         id: string,
+        stripeId: string | null,
         password: string, /* SHA512 */
         role: 'admin' | 'user',
 
@@ -26,8 +26,15 @@ declare global {
 
         __v: number,
 
-        save(): Promise<IUser>;
+        save(): Promise<UserDocument>;
     }
+
+    interface IUserMethods {
+        sanitize(this: UserDocument): IUser;
+        createStripeCustomer(this: UserDocument): Promise<void>;
+    }
+
+    type UserDocument = Document & IUser & IUserMethods;
 
     //
     // User Service Model
@@ -36,10 +43,13 @@ declare global {
         /* Service Identifier Data */
         id: string,
         name: string,
-    
+        series: String,
+        region: string,
+
         /* Linked User Data */
         user: ObjectId,
         pricing: SubscriptionCurrencyData,
+        activeInvoice: ObjectId | null,
     
         /* Hardware Information + VM Specs */
         server: ObjectId,
@@ -85,6 +95,8 @@ declare global {
         name: string,
         address: string,
         port: number,
+        region: string, // Datacenter Region (Shorthand, IE, 'us-east-1')
+        series: string, // Server Series (IE, 'm5.large') - Used for hardware spec types
     
         provider: {
             name: string,
@@ -116,8 +128,65 @@ declare global {
         deallocateService(this: ServerDocument, service: IService): Promise<boolean>;
     }
 
-    type ServerDocument = Document & IServer & IServerMethods;
+    //
+    // Service Package Model
+    //
+    interface IServicePkg {
+        name: string;
+        id: string;
+        description: string;
+        regions: string[];
+    
+        serverSeries: string;
+        packageSeries?: string;
+    
+        specs: {
+            ram: number;
+            cores: number;
+            disk: number;
+            bandwidth: number;
+        };
+    
+        cost: {
+            id: string;
+            price: number;
+            currency: string;
+            symbol: string;
+            days: number;
+        };
+    
+        status: 'active' | 'inactive';
+        expires?: Date;
+    }
 
+    interface IServicePkgMethods {
+        isAvailable(this: ServicePkgDocument): Promise<boolean>;
+        getServices(this: ServicePkgDocument): Promise<IService[]>;
+        getServers(this: ServicePkgDocument): Promise<IServer[]>;
+    }
+
+    //
+    // Invoice Model
+    //
+    interface IInvoice {
+        id: string,
+        user: ObjectId,
+        pricing: SubscriptionCurrencyData,
+        status: 'paid' | 'unpaid' | 'stale' | 'invalid' | 'cancelled',
+    }
+
+    interface IInvoiceMethods {
+        $fetchStatus(this: InvoiceDocument): Promise<string>;
+        fetchStatus(this: InvoiceDocument): Promise<string>;
+    }
+
+    type InvoiceDocument = Document & IInvoice & IInvoiceMethods;
+
+    //
+    // Mongoose Models
+    //
+    type ServicePackageDocument = Document & IServicePkg & IServicePkgMethods;
+    type ServerDocument = Document & IServer & IServerMethods;
     type ServiceDocument = Document & IService & IServiceMethods;
 
     //
@@ -135,6 +204,43 @@ declare global {
             unit: 'day' | 'week' | 'month' | 'year',
         },
         billingStart: Date
+    }
+
+    //
+    // Stripe Data
+    //
+    interface StripeCustomerData {
+        id: string,
+        object: 'customer',
+        address: null,
+        balance: number,
+        created: number,
+        currency: null,
+        default_source: null,
+        delinquent: boolean,
+        description: null,
+        discount: null,
+        email: string,
+        invoice_prefix: string,
+        invoice_settings: {
+            custom_fields: null,
+            default_payment_method: null,
+            footer: null,
+            rendering_options: null
+        },
+        livemode: boolean,
+        metadata: {},
+        name: string,
+        next_invoice_sequence: number,
+        phone: null,
+        preferred_locales: [],
+        shipping: null,
+        tax_exempt: 'none',
+        test_clock: null,
+    }
+
+    interface StripeInvoiceCreationData {
+        customer: string,
     }
 }
 

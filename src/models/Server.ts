@@ -1,5 +1,6 @@
 import { Schema, Types, model, type ObjectId } from "mongoose";
 import Service from "./Service";
+import axios from "axios";
 
 /* Server Model */
 const ServerSchema = new Schema<ServerDocument>({
@@ -44,25 +45,37 @@ class Server {
         return true;
     }
 
-    async getServices(this: ServerDocument): Promise<IService[]> {
+    async getServices(this: ServerDocument): Promise<ServiceDocument[]> {
         /* Get all services running in the server */
         return Service.find({ server: this._id, status: "active" });
     }
 
-    async canFitService(this: ServerDocument, service: IService): Promise<boolean> {
+    async canFitService(this: ServerDocument, service: ServiceDocument): Promise<boolean> {
         /* Get current available resources from server */
         /* Check if service can fit in the server */
         console.warn("Method not implemented. -> server :: canFitService");
         return true;
     }
 
-    async allocateService(this: ServerDocument, service: IService): Promise<boolean> {
-        /* Allocate service resources in the server */
+    async allocateService(this: ServerDocument, service: ServiceDocument): Promise<boolean> {
+        /* Let the server know to start building the service */
+        const serverEndpoint = `${this.provider.url}:${this.port}/`;
+        const serverKey = this.provider.machineId;
+
+        await axios.post(`${serverEndpoint}/api/service`).catch(err => {
+            console.error(`Server ${this.id} couldn't host service ${service.id}`);
+            return false;
+        });
+
+        /* Update service status to "installing" when the server adknowledges the request  */
+        service.status = "installing";
+        await service.save();
+
         console.warn("Method not implemented. -> server :: allocateService");
         return true;
     }
 
-    async deallocateService(this: ServerDocument, service: IService): Promise<boolean> {
+    async deallocateService(this: ServerDocument, service: ServiceDocument): Promise<boolean> {
         /* Deallocate service resources in the server */
         console.warn("Method not implemented. -> server :: deallocateService");
         return true;

@@ -1,3 +1,15 @@
+/**
+ * @name Service
+ * @description A service can be thought of as a virtual machine that a user can rent from us.
+ * The service is a virtual machine that runs on a server, and the user can interact with the service.
+ * The service has specifications, a cost, and a status.
+ * The service can be active, inactive, suspended, terminated, installing, pending, or cancelled.
+ * The service can be started, stopped, suspended, or terminated.
+ * Typically, a service belongs to a user and runs on a dedicated server owned by us.
+ * Services aren't limited to just virtual machines, but can be any virtual game server, web server, or application server.
+ * Service types are defined by the series of the service and the server / region it runs on.
+ * @author MilesSRC
+ */
 import { Schema, model, Types } from "mongoose";
 import Server from "./Server";
 
@@ -7,6 +19,7 @@ const ServiceSchema = new Schema<ServiceDocument>({
     name: { type: String, required: true },
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     series: { type: String, required: true },
+    region: { type: String, required: true },
 
     pricing: { type: {
         price: { type: Number, required: true },
@@ -18,6 +31,8 @@ const ServiceSchema = new Schema<ServiceDocument>({
         }, required: true },
         billingStart: { type: Date, required: true }
     }, required: true },
+    
+    activeInvoice: { type: Schema.Types.ObjectId, ref: 'Invoice', required: false, default: null },
 
     server: { type: Schema.Types.ObjectId, ref: 'Server', required: true },
     serviceAddress: { type: String, required: true },
